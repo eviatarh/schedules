@@ -1,0 +1,150 @@
+html{
+    direction: rtl;
+}
+.m-r {
+    margin-right: 10px;
+}
+.m-l {
+    margin-left: 10px;
+}
+.m-b {
+    margin-bottom: 10px;
+}
+.m-t {
+    margin-top: 10px;
+}
+
+
+.flx {
+    display: flex;
+}
+
+.row {
+    flex-direction: row;
+}
+
+.row.rvs {
+    flex-direction: row-reverse;
+}
+.col {
+    flex-direction: column;
+}
+
+.wrp {
+    flex-wrap: wrap;
+}
+
+.day {
+    height: 133px;
+    width: 133px;
+}
+
+.title {
+    font-size: larger;
+}
+
+.title.big{
+    font-size: x-large;
+    border-bottom: 1px solid;
+}
+
+.title.grey{
+    background-color: darkgray;
+}
+
+.title.blue{
+    background-color: #31728b;
+}
+
+.main.grey{
+    background-color: lightgray;
+}
+
+.main.blue{
+    background-color: lightblue;
+}
+.fill {
+    flex: 1;
+}
+
+.ctr {
+    justify-content: center;
+    align-items: center;
+}
+
+.fixedTitle {
+    width:200px;
+    text-align: center;
+}
+
+.btn {
+    background-color: #85b3ff;
+    font-size:15px;
+    margin:3px;
+    border-radius: 15%;
+    cursor: default;
+    display:block;
+    user-select:none;
+}
+
+.btn.blue {
+    background-color:lightblue;
+}
+
+.btn:active {
+    background-color: #5970ff;
+}
+
+.card{
+    background-color: #85b3ff;
+}
+
+.links{
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+li {
+    display: inline;
+}
+
+.link {
+    margin-right: 5px;
+    font-size: x-large;
+    background-color: #dddddd;
+}
+
+.picker {
+    width:20px;
+}
+
+.fieldTitle {
+    width:100px;
+}
+
+
+.forceIt input {
+    width:100px !important;
+}
+
+.spc {
+    justify-content: space-between;
+}
+
+.field {
+    display:flex;
+    justify-content: center;
+    align-items: center;
+    margin-top:5px;
+}
+
+.roleLine{
+    display:flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.unsavedEvent {
+    background-color: #c9465d;
+}
