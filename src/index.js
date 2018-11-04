@@ -28,8 +28,6 @@ const mapStateToProps = ({scheduleEvent, roles, activeEvent}) => {
     }
 };
 
-
-
 const mapDispatchToProp = dispatch => {
     return {
         initEvents: events => dispatch(actionCreators.schedules.init(events)),
