@@ -34,7 +34,7 @@ export function DayComponent({date, greyed, event, children, onAddEvent = ()=>{}
                         onAddEvent(date)
                     }}><i className="fa fa-plus fa-xs"/></button> : ''}</div>
                 </div>
-                <div className='fill'>
+                <div className='dayChildrenHolder fill'>
                     {children}
                 </div>
             </div>

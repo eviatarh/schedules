@@ -82,6 +82,17 @@ html{
     font-size:15px;
     margin:3px;
     border-radius: 15%;
+    border-style:solid;
+    cursor: default;
+    display:block;
+    user-select:none;
+}
+
+.event {
+    background-color: #85b3ff;
+    font-size:15px;
+    margin:3px;
+    border-radius: 15%;
     cursor: default;
     display:block;
     user-select:none;
@@ -94,6 +105,15 @@ html{
 .btn:active {
     background-color: #5970ff;
 }
+
+.event:active {
+    background-color: #5970ff;
+}
+
+.btn:disabled {
+    background-color: #85b3ff;
+}
+
 
 .card{
     background-color: #85b3ff;
@@ -147,4 +167,66 @@ li {
 
 .unsavedEvent {
     background-color: #c9465d;
+}
+
+.str {
+    justify-content: flex-start;
+}
+
+.end {
+    justify-content: flex-end;
+}
+
+.aiend {
+    align-items: flex-end;
+}
+
+.eventPanel {
+    border-top: 1px solid cadetblue;
+    margin-top: 10px
+}
+
+.sml-btn {
+    margin-right:2px;
+    margin-left:2px;
+    cursor: pointer;
+}
+
+.spec {
+    /*margin-left:3px;*/
+}
+
+
+
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+/* Tooltip text */
+.tooltip .tooltiptext {
+    visibility: hidden;
+    background-color: black;
+    color: #fff;
+    text-align: center;
+    padding: 0 3px 0 3px;
+    border-radius: 6px;
+    font-size:smaller;
+    position: absolute;
+    z-index: 1;
+    left:-7px;
+    top:-17px;
+    /*return this when overflow fixed...*/
+    /*right:7px;*/
+    /*top:17px;*/
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+}
+
+.dayChildrenHolder {
+    overflow-y: auto;
+    overflow-x: hidden;
+    height:77px;
 }

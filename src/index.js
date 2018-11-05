@@ -9,12 +9,13 @@ import Provider from "react-redux/es/components/Provider";
 import connect from "react-redux/es/connect/connect";
 import createHistory from "history/createBrowserHistory"
 import {EditEventComponent} from "./components/event-component";
-import {EventButtonView} from "./components/event-button-view-component";
+import {EventButtonListView} from "./components/event-button-view-component";
 import {createStateMap} from "./utils/createStateMap";
 import {compose, lifecycle, withHandlers, withState} from "recompose";
 import {actionCreators} from "./constants/action-creators";
 import {formatter} from "./utils/formatter";
-let _ = require('lodash');
+import {EventTriggerTypes} from "./constants/event-trigger-type";
+const _ = require('lodash');
 
 const history = createHistory();
 
@@ -22,9 +23,9 @@ const mapStateToProps = ({scheduleEvent, roles, activeEvent}) => {
     return {
         schedules: scheduleEvent,
         roles,
-        //TODO: continue this
-        activeEventFromStore: activeEvent === null ? null :
-            (activeEvent.id === null ? activeEvent.partialEvent : scheduleEvent.find(currEvent=>currEvent.id===activeEvent.id))
+        activeEvent: (()=>{
+            return activeEvent === null ? null :
+            (activeEvent.id === null ? activeEvent.partialEvent : scheduleEvent.find(currEvent=>currEvent.id===activeEvent.id))})()
     }
 };
 
@@ -40,20 +41,17 @@ const mapDispatchToProp = dispatch => {
 };
 
 const makeUiEvent = event=>{
-    const uiEvent = formatter(event, {
+    return formatter(event, {
         date:['date', val=>new Date(val)],
         timePeriod:['timePeriod', val=>{ return {from: new Date(val.from), to: new Date(val.to)}}],
         edited:['edited', val=>val||false],
         rollbackEvent:['rollbackEvent', val=>val?makeUiEvent(val):null],
         newEvent:['newEvent',val=>val||false]
     });
-
-    return uiEvent;
 };
 
 
-const AppComponent = compose(withState('activeEvent', 'updateActiveEvent', null),
-                             withState('calendarDate', 'setCalendarDate', new Date()),
+const AppComponent = compose(withState('calendarDate', 'setCalendarDate', new Date()),
                              connect(mapStateToProps, mapDispatchToProp),
                              lifecycle({
                                  componentDidMount() {
@@ -107,18 +105,26 @@ const AppComponent = compose(withState('activeEvent', 'updateActiveEvent', null)
                                           return eventId
                                       });
                                 },
-                                upsertEvent: () => upsertEvent => {
+                                postEvent: () => upsertEvent => {
                                     return fetch('http://localhost:8080/event', {
                                         method:'post',
                                         headers: {'content-type': 'application/json'},
                                         body:JSON.stringify({event:_.omit(upsertEvent,['edited','rollbackEvent','newEvent'])})
                                     }).then(result=>result.json());
                                 },
-                                updateEvent: ({updateEventInStore, addEventToCache}) => updatedEvent => {
+                                delEvent: () => deleteEvent => {
+                                    return fetch('http://localhost:8080/event', {
+                                        method:'delete',
+                                        headers: {'content-type': 'application/json'},
+                                        body:JSON.stringify({event:_.omit(deleteEvent,['edited','rollbackEvent','newEvent'])})
+                                    }).then(result=>result.json());
+                                },
+                                updateEvent: ({updateEventInStore, addEventToCache, setCalendarDate}) => updatedEvent => {
                                     if (updatedEvent.edited) {
                                         addEventToCache(updatedEvent);
                                     }
                                     updateEventInStore(updatedEvent);
+                                    setCalendarDate(updatedEvent.date)
                                 },
                                 rollbackEvent:({updateEventInStore})=> rollbackEvent => {
                                     const unSavedEvents = JSON.parse(localStorage.getItem('unSavedEvents'));
@@ -139,21 +145,56 @@ const AppComponent = compose(withState('activeEvent', 'updateActiveEvent', null)
                                                              JSON.stringify(unSavedEvents.filter(currEvent=>currEvent.id !== event.id)))
                                     }
                                     removeEventInStore(event.id);
-                                }
-                            }))
+                                },
+                                onAddPartialEvent: ({setPartialActiveEvent})=> date=> {
+                                    setPartialActiveEvent({date});
+                                    history.push(`/showEvent`);
+                                }}),
+                                withHandlers({
+                                    onEventTrigger: ({setActiveEvent, postEvent, saveEvent, delEvent, removeEvent, rollbackEvent, setCalendarDate}) => async ({type, event})=>{
+                                        switch (type){
+                                            case (EventTriggerTypes.eventClicked): {
+                                                setActiveEvent(event.id);
+                                                history.push(`/showEvent`);
+                                                break;
+                                            }
+                                            case (EventTriggerTypes.eventDeleted): {
+                                                await delEvent(event);
+                                                removeEvent(event);
+                                                history.push(`/`);
+                                                break;
+                                            }
+                                            case (EventTriggerTypes.eventSaved): {
+                                                const savedEvent = makeUiEvent(await postEvent(event));
+                                                saveEvent(savedEvent);
+                                                setCalendarDate(savedEvent.date);
+                                                break;
+                                            }
+                                            case (EventTriggerTypes.eventCanceled): {
+                                                if (event.newEvent) {
+                                                    removeEvent(event);
+                                                } else {
+                                                    rollbackEvent(event.rollbackEvent);
+                                                    setCalendarDate(event.rollbackEvent.date);
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }))
     (({calendarDate, schedules, roles, activeEvent, setCalendarDate,
-          updateEvent, rollbackEvent, removeEvent, saveEvent, updateActiveEvent, fetchEventId, upsertEvent}) =>{
+          updateEvent, rollbackEvent, removeEvent, saveEvent, setActiveEvent, resetActiveEvent, setPartialActiveEvent,
+          fetchEventId, postEvent, delEvent, onEventTrigger, onAddPartialEvent}) =>{
         const eventsMap = createStateMap(schedules);
         return (
             <Router history={history}>
             <div className="flx col ctr">
                 <ul className="links">
-                    <li><input className="link" type="button" value="דף הבית"/></li>
                     <li><input className="link" type="button" onClick={()=>{
                         history.push('/')
                     }} value="לוח שנה"/></li>
                     <li><input className="link" type="button" value="אירוע חדש" onClick={()=>{
-                        updateActiveEvent(null);
+                        resetActiveEvent();
                         history.push('/showEvent')
                      }}/></li>
                 </ul>
@@ -164,19 +205,10 @@ const AppComponent = compose(withState('activeEvent', 'updateActiveEvent', null)
                         return (<CalendarViewer {...routeProps}
                                                 time={calendarDate}
                                                 events={eventsMap}
-                                                showEvent={EventButtonView}
-                                                onEventTrigger={({type, eventId}) => {
-                                                    const event = schedules.find(value => value.id.toString() === eventId.toString());
-                                                    updateActiveEvent(event);
-                                                    history.push(`/showEvent`);
-                                                }}
-                                                onMonthChange={(newDate)=>{
-                                                    setCalendarDate(newDate);
-                                                }}
-                                                onAddEvent={(dateClicked)=>{
-                                                    updateActiveEvent({date:dateClicked});
-                                                    history.push(`/showEvent`);
-                                                }}
+                                                showEvent={EventButtonListView}
+                                                onEventTrigger={onEventTrigger}
+                                                onMonthChange={setCalendarDate}
+                                                onAddEvent={onAddPartialEvent}
                                                 />)
                     }} />
                     <Route path="/showEvent" exact render={routeProps=>{
@@ -187,24 +219,12 @@ const AppComponent = compose(withState('activeEvent', 'updateActiveEvent', null)
                                                             eventId = await fetchEventId();
                                                         }
                                                         updateEvent({...updatedEvent, ...{id:eventId}});
-                                                        updateActiveEvent({...updatedEvent, ...{id:eventId}});
-                                                    }}
-                                                    onCancel={()=>{
-                                                         if (activeEvent.newEvent) {
-                                                             removeEvent(activeEvent);
-                                                         } else {
-                                                             rollbackEvent(activeEvent.rollbackEvent);
-                                                         }
-                                                        updateActiveEvent(activeEvent.rollbackEvent);
+                                                        setActiveEvent(eventId);
                                                     }}
                                                     onBack={()=>{
                                                         history.push('/');
                                                     }}
-                                                    onSave={async ()=>{
-                                                        const event = makeUiEvent(await upsertEvent(activeEvent));
-                                                        saveEvent(event);
-                                                        updateActiveEvent(event);
-                                                    }}
+                                                    onEventTrigger={onEventTrigger}
                                 />);
                     }} />
                     </div>

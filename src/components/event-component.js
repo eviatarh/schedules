@@ -1,37 +1,38 @@
 import React from "react";
-import {withHandlers} from "recompose";
+import {compose, withHandlers} from "recompose";
 import DatePicker from "react-datepicker/es";
 import moment from "moment";
 import 'react-datepicker/dist/react-datepicker.css';
 import {TimePicker} from "./time-picker-component";
 import {EditRoles} from "./edit-roles-component";
+import {withEventActions} from "./high-order-components/withEventActions";
 let _ = require('lodash');
 const pad = ((a,b) => (1e15+a+"").slice(-b));
 
 
+const now = new Date();
+const baseTime = new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0);
 const defaultEvent = {
     id:-1,
     displayName: 'אירוע חדש',
-    date: new Date(),
+    date: now,
     timePeriod: {
-        from: new Date(),
-        to: new Date()
+        from: baseTime,
+        to: baseTime
     },
     rolesNeeded: [],
     rollbackEvent: null,
-    newEvent:false
+    newEvent:true
 };
 
-export const EditEventComponent = withHandlers({
+export const EditEventComponent = compose(withHandlers({
     updateEditedEvent: ({onUpdateEvent, event}) => (update) => {
         let updatedEvent = {..._.cloneDeep(defaultEvent),...event||{}};
-        const newEvent = updatedEvent.newEvent || updatedEvent.id === -1;
+        const newEvent = updatedEvent.newEvent;
         updatedEvent = updatedEvent.edited ?
             {...updatedEvent, ...update} : {...updatedEvent, ...{rollbackEvent: updatedEvent, edited: true, newEvent}, ...update};
         onUpdateEvent(updatedEvent);
-    }
-})
-(({event, roles, updateEditedEvent, onCancel=()=>{}, onSave=()=>{}, onBack=()=>{}})=>{
+    }}), withEventActions)(({event, roles, updateEditedEvent, onEventCancel, onEventDelete, onEventSave, onBack=()=>{}})=>{
     const uiEvent = {..._.cloneDeep(defaultEvent),...event||{}};
     return (
         <div className="card flx col">
@@ -68,12 +69,11 @@ export const EditEventComponent = withHandlers({
                     <EditRoles event={uiEvent} roles={roles} updateEditedEvent={updateEditedEvent}/>
                 </div>
             </div>
-            <div className='flx row spc'>
-                <div className='flx row'>
-                    <input type='button' className="btn" value='חזור' onClick={onBack}/>
-                    <input type='button' className="btn" disabled={!event || !event.rollbackEvent} value='בטל' onClick={onCancel}/>
-                </div>
-                <input type='button' className="btn" value='שמור' onClick={onSave}/>
+            <div className='flx row end eventPanel'>
+                    <button className='btn' onClick={onEventCancel} disabled={!event || !event.edited}><i className='fa fa-undo'/></button>
+                    <button className='btn' onClick={onEventSave} disabled={!event || !event.edited}><i className='fa fa-save'/></button>
+                    <button className='btn' onClick={onEventDelete} disabled={!event || event.newEvent}><i className='fa fa-trash'/></button>
+                    <button className='btn' onClick={onBack}><i className='fa fa-times'/></button>
             </div>
         </div>)
 });
