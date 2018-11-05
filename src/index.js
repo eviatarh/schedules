@@ -15,6 +15,7 @@ import {compose, lifecycle, withHandlers, withState} from "recompose";
 import {actionCreators} from "./constants/action-creators";
 import {formatter} from "./utils/formatter";
 import {EventTriggerTypes} from "./constants/event-trigger-type";
+import {Links} from "./components/links-component";
 const _ = require('lodash');
 
 const history = createHistory();
@@ -40,7 +41,7 @@ const mapDispatchToProp = dispatch => {
     }
 };
 
-const makeUiEvent = event=>{
+const makeUiEvent = event => {
     return formatter(event, {
         date:['date', val=>new Date(val)],
         timePeriod:['timePeriod', val=>{ return {from: new Date(val.from), to: new Date(val.to)}}],
@@ -78,7 +79,7 @@ const AppComponent = compose(withState('calendarDate', 'setCalendarDate', new Da
                                          })
                                  }
                              }),
-                            withHandlers({
+                             withHandlers({
                                 addEventToCache: () => event =>{
                                     const unsavedEvents = localStorage.getItem('unSavedEvents');
                                     let newUnsavedEvents = [];
@@ -94,7 +95,7 @@ const AppComponent = compose(withState('calendarDate', 'setCalendarDate', new Da
                                         JSON.stringify(unSavedEvents.filter(currEvent=>currEvent.id !== eventId)));
                                 }
                             }),
-                            withHandlers({
+                             withHandlers({
                                 fetchEventId: () => () => {
                                     return fetch('http://localhost:8080/event/fetchId', {
                                         method:'post',
@@ -150,8 +151,21 @@ const AppComponent = compose(withState('calendarDate', 'setCalendarDate', new Da
                                     setPartialActiveEvent({date});
                                     history.push(`/showEvent`);
                                 }}),
-                                withHandlers({
-                                    onEventTrigger: ({setActiveEvent, postEvent, saveEvent, delEvent, removeEvent, rollbackEvent, setCalendarDate}) => async ({type, event})=>{
+                             withHandlers({
+                                 onUpdateEvent: ({fetchEventId, updateEvent, setActiveEvent}) => async updatedEvent=>{
+                                        let eventId = updatedEvent.id;
+                                        if (updatedEvent.id === -1) {
+                                            eventId = await fetchEventId();
+                                        }
+                                        updateEvent({...updatedEvent, ...{id:eventId}});
+                                        setActiveEvent(eventId);
+                                        },
+                                 onBack: ()=>{
+                                         history.push('/');
+                                         },
+                                 onEventTrigger: ({setActiveEvent, postEvent, saveEvent,
+                                                   delEvent, removeEvent, rollbackEvent,
+                                                   setCalendarDate}) => async ({type, event})=>{
                                         switch (type){
                                             case (EventTriggerTypes.eventClicked): {
                                                 setActiveEvent(event.id);
@@ -177,62 +191,43 @@ const AppComponent = compose(withState('calendarDate', 'setCalendarDate', new Da
                                                     rollbackEvent(event.rollbackEvent);
                                                     setCalendarDate(event.rollbackEvent.date);
                                                 }
-                                                break;
                                             }
                                         }
                                     }
                                 }))
     (({calendarDate, schedules, roles, activeEvent, setCalendarDate,
-          updateEvent, rollbackEvent, removeEvent, saveEvent, setActiveEvent, resetActiveEvent, setPartialActiveEvent,
-          fetchEventId, postEvent, delEvent, onEventTrigger, onAddPartialEvent}) =>{
+       updateEvent, rollbackEvent, removeEvent, saveEvent, setActiveEvent, resetActiveEvent, setPartialActiveEvent,
+       fetchEventId, postEvent, delEvent, onBack, onUpdateEvent, onEventTrigger, onAddPartialEvent}) =>{
         const eventsMap = createStateMap(schedules);
         return (
             <Router history={history}>
             <div className="flx col ctr">
-                <ul className="links">
-                    <li><input className="link" type="button" onClick={()=>{
-                        history.push('/')
-                    }} value="לוח שנה"/></li>
-                    <li><input className="link" type="button" value="אירוע חדש" onClick={()=>{
-                        resetActiveEvent();
-                        history.push('/showEvent')
-                     }}/></li>
-                </ul>
+                <Links resetActiveEvent={resetActiveEvent} />
                 -------------------------------------------------
-
-                    <div>
-                    <Route path="/" exact render={routeProps=>{
-                        return (<CalendarViewer {...routeProps}
-                                                time={calendarDate}
-                                                events={eventsMap}
-                                                showEvent={EventButtonListView}
+                <div>
+                <Route path="/" exact render={routeProps=>{
+                    return (<CalendarViewer {...routeProps}
+                                            time={calendarDate}
+                                            events={eventsMap}
+                                            showEvent={EventButtonListView}
+                                            onEventTrigger={onEventTrigger}
+                                            onMonthChange={setCalendarDate}
+                                            onAddEvent={onAddPartialEvent}
+                                            />)
+                }} />
+                <Route path="/showEvent" exact render={routeProps=>{
+                    return (<EditEventComponent {...routeProps} event={activeEvent} roles={roles}
+                                                onUpdateEvent={onUpdateEvent}
+                                                onBack={onBack}
                                                 onEventTrigger={onEventTrigger}
-                                                onMonthChange={setCalendarDate}
-                                                onAddEvent={onAddPartialEvent}
-                                                />)
-                    }} />
-                    <Route path="/showEvent" exact render={routeProps=>{
-                        return (<EditEventComponent {...routeProps} event={activeEvent} roles={roles}
-                                                    onUpdateEvent={async (updatedEvent)=>{
-                                                        let eventId = updatedEvent.id;
-                                                        if (updatedEvent.id === -1){
-                                                            eventId = await fetchEventId();
-                                                        }
-                                                        updateEvent({...updatedEvent, ...{id:eventId}});
-                                                        setActiveEvent(eventId);
-                                                    }}
-                                                    onBack={()=>{
-                                                        history.push('/');
-                                                    }}
-                                                    onEventTrigger={onEventTrigger}
-                                />);
-                    }} />
-                    </div>
-
+                            />);
+                }} />
+                </div>
             </div>
     </Router>
         )
 });
+
 const store = createStore(reducer);
 ReactDOM.render(
     <Provider store={store}>
