@@ -10,19 +10,19 @@ import connect from "react-redux/es/connect/connect";
 import createHistory from "history/createBrowserHistory"
 import {EditEventComponent} from "./components/event-component";
 import {EventButtonListView} from "./components/event-button-view-component";
-import {createStateMap} from "./utils/createStateMap";
+import {createStateMap} from "./utils/create-state-map";
 import {compose, lifecycle, withHandlers, withState} from "recompose";
 import {actionCreators} from "./constants/action-creators";
-import {formatter} from "./utils/formatter";
 import {EventTriggerTypes} from "./constants/event-trigger-type";
 import {Links} from "./components/links-component";
-const _ = require('lodash');
+import {makeUiEvent} from "./utils/make-ui-event";
 
+const _ = require('lodash');
 const history = createHistory();
 
 const mapStateToProps = ({scheduleEvent, roles, activeEvent}) => {
     return {
-        schedules: scheduleEvent,
+        eventsMap: createStateMap(scheduleEvent),
         roles,
         activeEvent: (()=>{
             return activeEvent === null ? null :
@@ -41,16 +41,127 @@ const mapDispatchToProp = dispatch => {
     }
 };
 
-const makeUiEvent = event => {
-    return formatter(event, {
-        date:['date', val=>new Date(val)],
-        timePeriod:['timePeriod', val=>{ return {from: new Date(val.from), to: new Date(val.to)}}],
-        edited:['edited', val=>val||false],
-        rollbackEvent:['rollbackEvent', val=>val?makeUiEvent(val):null],
-        newEvent:['newEvent',val=>val||false]
-    });
+const cacheHandlers = {
+    addEventToCache: () => event =>{
+        const unsavedEvents = localStorage.getItem('unSavedEvents');
+        let newUnsavedEvents = [];
+        if (unsavedEvents){
+            newUnsavedEvents = JSON.parse(unsavedEvents)
+        }
+        newUnsavedEvents.push(event);
+        localStorage.setItem('unSavedEvents', JSON.stringify(newUnsavedEvents))
+    },
+    removeEventFromCache: () => eventId =>{
+        const unSavedEvents = JSON.parse(localStorage.getItem('unSavedEvents'));
+        localStorage.setItem('unSavedEvents',
+            JSON.stringify(unSavedEvents.filter(currEvent=>currEvent.id !== eventId)));
+    }
 };
 
+const fetchHandlers = {
+    fetchEventId: () => () => {
+    return fetch('http://localhost:8080/event/fetchId', {
+        method:'post',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({})
+    }).then((result) => result.json())
+        .then(({eventId}) => {
+            return eventId
+        });
+},
+    postEvent: () => upsertEvent => {
+    return fetch('http://localhost:8080/event', {
+        method:'post',
+        headers: {'content-type': 'application/json'},
+        body:JSON.stringify({event:_.omit(upsertEvent,['edited','rollbackEvent','newEvent'])})
+    }).then(result=>result.json());
+},
+    delEvent: () => deleteEvent => {
+    return fetch('http://localhost:8080/event', {
+        method:'delete',
+        headers: {'content-type': 'application/json'},
+        body:JSON.stringify({event:_.omit(deleteEvent,['edited','rollbackEvent','newEvent'])})
+    }).then(result=>result.json());
+}};
+
+const eventsHandlers = {
+    updateEvent: ({updateEventInStore, addEventToCache, setCalendarDate}) => updatedEvent => {
+        if (updatedEvent.edited) {
+            addEventToCache(updatedEvent);
+        }
+        updateEventInStore(updatedEvent);
+        setCalendarDate(updatedEvent.date)
+    },
+    rollbackEvent:({updateEventInStore})=> rollbackEvent => {
+        const unSavedEvents = JSON.parse(localStorage.getItem('unSavedEvents'));
+        localStorage.setItem('unSavedEvents',
+            JSON.stringify(unSavedEvents.filter(currEvent=>currEvent.id !== rollbackEvent.id)));
+        updateEventInStore(rollbackEvent);
+    },
+    saveEvent:({updateEventInStore})=> rollbackEvent => {
+        const unSavedEvents = JSON.parse(localStorage.getItem('unSavedEvents'));
+        localStorage.setItem('unSavedEvents',
+            JSON.stringify(unSavedEvents.filter(currEvent=>currEvent.id !== rollbackEvent.id)));
+        updateEventInStore(rollbackEvent);
+    },
+    removeEvent: ({removeEventInStore}) => event => {
+        if (event.edited){
+            const unSavedEvents = JSON.parse(localStorage.getItem('unSavedEvents'));
+            localStorage.setItem('unSavedEvents',
+                JSON.stringify(unSavedEvents.filter(currEvent=>currEvent.id !== event.id)))
+        }
+        removeEventInStore(event.id);
+    }
+};
+
+const appComponentHandlers = {
+    onAddPartialEvent: ({setPartialActiveEvent})=> date=> {
+        setPartialActiveEvent({date});
+        history.push(`/showEvent`);
+    },
+    onUpdateEvent: ({fetchEventId, updateEvent, setActiveEvent}) => async updatedEvent=>{
+        let eventId = updatedEvent.id;
+        if (updatedEvent.id === -1) {
+            eventId = await fetchEventId();
+        }
+        updateEvent({...updatedEvent, ...{id:eventId}});
+        setActiveEvent(eventId);
+    },
+    onBack: ()=>{
+        history.push('/');
+    },
+    onEventTrigger: ({setActiveEvent, postEvent, saveEvent,
+                         delEvent, removeEvent, rollbackEvent,
+                         setCalendarDate}) => async ({type, event})=>{
+        switch (type){
+            case (EventTriggerTypes.eventClicked): {
+                setActiveEvent(event.id);
+                history.push(`/showEvent`);
+                break;
+            }
+            case (EventTriggerTypes.eventDeleted): {
+                await delEvent(event);
+                removeEvent(event);
+                history.push(`/`);
+                break;
+            }
+            case (EventTriggerTypes.eventSaved): {
+                const savedEvent = makeUiEvent(await postEvent(event));
+                saveEvent(savedEvent);
+                setCalendarDate(savedEvent.date);
+                break;
+            }
+            case (EventTriggerTypes.eventCanceled): {
+                if (event.newEvent) {
+                    removeEvent(event);
+                } else {
+                    rollbackEvent(event.rollbackEvent);
+                    setCalendarDate(event.rollbackEvent.date);
+                }
+            }
+        }
+    }
+};
 
 const AppComponent = compose(withState('calendarDate', 'setCalendarDate', new Date()),
                              connect(mapStateToProps, mapDispatchToProp),
@@ -79,126 +190,13 @@ const AppComponent = compose(withState('calendarDate', 'setCalendarDate', new Da
                                          })
                                  }
                              }),
-                             withHandlers({
-                                addEventToCache: () => event =>{
-                                    const unsavedEvents = localStorage.getItem('unSavedEvents');
-                                    let newUnsavedEvents = [];
-                                    if (unsavedEvents){
-                                        newUnsavedEvents = JSON.parse(unsavedEvents)
-                                    }
-                                    newUnsavedEvents.push(event);
-                                    localStorage.setItem('unSavedEvents', JSON.stringify(newUnsavedEvents))
-                                },
-                                removeEventFromCache: () => eventId =>{
-                                    const unSavedEvents = JSON.parse(localStorage.getItem('unSavedEvents'));
-                                    localStorage.setItem('unSavedEvents',
-                                        JSON.stringify(unSavedEvents.filter(currEvent=>currEvent.id !== eventId)));
-                                }
-                            }),
-                             withHandlers({
-                                fetchEventId: () => () => {
-                                    return fetch('http://localhost:8080/event/fetchId', {
-                                        method:'post',
-                                        headers: {'content-type': 'application/json'},
-                                        body: JSON.stringify({})
-                                    }).then((result) => result.json())
-                                      .then(({eventId}) => {
-                                          return eventId
-                                      });
-                                },
-                                postEvent: () => upsertEvent => {
-                                    return fetch('http://localhost:8080/event', {
-                                        method:'post',
-                                        headers: {'content-type': 'application/json'},
-                                        body:JSON.stringify({event:_.omit(upsertEvent,['edited','rollbackEvent','newEvent'])})
-                                    }).then(result=>result.json());
-                                },
-                                delEvent: () => deleteEvent => {
-                                    return fetch('http://localhost:8080/event', {
-                                        method:'delete',
-                                        headers: {'content-type': 'application/json'},
-                                        body:JSON.stringify({event:_.omit(deleteEvent,['edited','rollbackEvent','newEvent'])})
-                                    }).then(result=>result.json());
-                                },
-                                updateEvent: ({updateEventInStore, addEventToCache, setCalendarDate}) => updatedEvent => {
-                                    if (updatedEvent.edited) {
-                                        addEventToCache(updatedEvent);
-                                    }
-                                    updateEventInStore(updatedEvent);
-                                    setCalendarDate(updatedEvent.date)
-                                },
-                                rollbackEvent:({updateEventInStore})=> rollbackEvent => {
-                                    const unSavedEvents = JSON.parse(localStorage.getItem('unSavedEvents'));
-                                    localStorage.setItem('unSavedEvents',
-                                                         JSON.stringify(unSavedEvents.filter(currEvent=>currEvent.id !== rollbackEvent.id)));
-                                    updateEventInStore(rollbackEvent);
-                                },
-                                saveEvent:({updateEventInStore})=> rollbackEvent => {
-                                    const unSavedEvents = JSON.parse(localStorage.getItem('unSavedEvents'));
-                                    localStorage.setItem('unSavedEvents',
-                                        JSON.stringify(unSavedEvents.filter(currEvent=>currEvent.id !== rollbackEvent.id)));
-                                    updateEventInStore(rollbackEvent);
-                                },
-                                removeEvent: ({removeEventInStore}) => event => {
-                                    if (event.edited){
-                                        const unSavedEvents = JSON.parse(localStorage.getItem('unSavedEvents'));
-                                        localStorage.setItem('unSavedEvents',
-                                                             JSON.stringify(unSavedEvents.filter(currEvent=>currEvent.id !== event.id)))
-                                    }
-                                    removeEventInStore(event.id);
-                                },
-                                onAddPartialEvent: ({setPartialActiveEvent})=> date=> {
-                                    setPartialActiveEvent({date});
-                                    history.push(`/showEvent`);
-                                }}),
-                             withHandlers({
-                                 onUpdateEvent: ({fetchEventId, updateEvent, setActiveEvent}) => async updatedEvent=>{
-                                        let eventId = updatedEvent.id;
-                                        if (updatedEvent.id === -1) {
-                                            eventId = await fetchEventId();
-                                        }
-                                        updateEvent({...updatedEvent, ...{id:eventId}});
-                                        setActiveEvent(eventId);
-                                        },
-                                 onBack: ()=>{
-                                         history.push('/');
-                                         },
-                                 onEventTrigger: ({setActiveEvent, postEvent, saveEvent,
-                                                   delEvent, removeEvent, rollbackEvent,
-                                                   setCalendarDate}) => async ({type, event})=>{
-                                        switch (type){
-                                            case (EventTriggerTypes.eventClicked): {
-                                                setActiveEvent(event.id);
-                                                history.push(`/showEvent`);
-                                                break;
-                                            }
-                                            case (EventTriggerTypes.eventDeleted): {
-                                                await delEvent(event);
-                                                removeEvent(event);
-                                                history.push(`/`);
-                                                break;
-                                            }
-                                            case (EventTriggerTypes.eventSaved): {
-                                                const savedEvent = makeUiEvent(await postEvent(event));
-                                                saveEvent(savedEvent);
-                                                setCalendarDate(savedEvent.date);
-                                                break;
-                                            }
-                                            case (EventTriggerTypes.eventCanceled): {
-                                                if (event.newEvent) {
-                                                    removeEvent(event);
-                                                } else {
-                                                    rollbackEvent(event.rollbackEvent);
-                                                    setCalendarDate(event.rollbackEvent.date);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }))
-    (({calendarDate, schedules, roles, activeEvent, setCalendarDate,
+                             withHandlers(cacheHandlers),
+                             withHandlers(fetchHandlers),
+                             withHandlers(eventsHandlers),
+                             withHandlers(appComponentHandlers))
+    (({calendarDate, eventsMap, roles, activeEvent, setCalendarDate,
        updateEvent, rollbackEvent, removeEvent, saveEvent, setActiveEvent, resetActiveEvent, setPartialActiveEvent,
        fetchEventId, postEvent, delEvent, onBack, onUpdateEvent, onEventTrigger, onAddPartialEvent}) =>{
-        const eventsMap = createStateMap(schedules);
         return (
             <Router history={history}>
             <div className="flx col ctr">
