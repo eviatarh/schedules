@@ -28,29 +28,40 @@ function shortDisplayName(displayName){
                              <div className='flx row end aiend spec'>
                                  { showCancelButton &&
                                  <span className='sml-btn tooltip' onClick={onEventCancel}>
-                                     <span className='tooltiptext'>בטל</span>
+                                     <span className='tooltiptext tiny-button'>בטל</span>
                                      <i className='fa fa-undo fa-xs'/>
                                  </span>
                                  }
                                  { showSaveButton &&
                                  <span className='sml-btn tooltip' onClick={onEventSave}>
-                                     <span className='tooltiptext'>שמור</span>
+                                     <span className='tooltiptext tiny-button'>שמור</span>
                                      <i className='fa fa-save fa-xs'/>
                                  </span>
                                  }
                                  {
                                      showDeleteButton &&
                                      <span className='sml-btn tooltip' onClick={onEventDelete}>
-                                         <span className='tooltiptext'>מחק</span>
+                                         <span className='tooltiptext tiny-button'>מחק</span>
                                          <i className='fa fa-trash fa-xs'/>
                                      </span>
                                  }
                          </div>
-                         <div className='fill' onClick={onEventClick}>{shortDisplayName(event.displayName)}</div>
+                         <div className='flx row fill' onClick={onEventClick}>
+                             <span className='tooltip'>
+                                 <span className='tooltiptext event-title'>{event.displayName}</span>
+                                {shortDisplayName(event.displayName)}
+                             </span>
+                             <span className='fill'/>
+                         </div>
                      </div>
                  </div>)
 });
 
 export function EventButtonListView({events, onEventTrigger = ()=>{}}) {
-    return events.map(event=><EventButtonView key={event.id} event={event} onEventTrigger={onEventTrigger}/>);
+    return events
+        .sort((eventA, eventB) => {
+        return (eventB.timePeriod.from < eventA.timePeriod.from) ? 1 : (eventB.timePeriod.from > eventA.timePeriod.from ? -1 : 0);
+    })
+        .map(event=><EventButtonView key={event.id} event={event} onEventTrigger={onEventTrigger}/>);
+
 }

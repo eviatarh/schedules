@@ -69,11 +69,32 @@ export const EditEventComponent = compose(withHandlers({
                     <EditRoles event={uiEvent} roles={roles} updateEditedEvent={updateEditedEvent}/>
                 </div>
             </div>
-            <div className='flx row end eventPanel'>
-                    <button className='btn' onClick={onEventCancel} disabled={!event || !event.edited}><i className='fa fa-undo'/></button>
-                    <button className='btn' onClick={onEventSave} disabled={!event || !event.edited}><i className='fa fa-save'/></button>
-                    <button className='btn' onClick={onEventDelete} disabled={!event || event.newEvent}><i className='fa fa-trash'/></button>
-                    <button className='btn' onClick={onBack}><i className='fa fa-times'/></button>
+            <div className='flx row'>
+                <button className='btn tooltip' onClick={()=>{}}>
+                    <span className='tooltiptext big-button'>אירוע חוזר</span>
+                    <i className="fa fa-sitemap"/>
+                </button>
+                {/*<div className='fill'/>*/}
+            </div>
+            {/*<div className='flx row spc '>*/}
+                <div className='flx row end eventPanel'>
+                        <button className='btn tooltip' onClick={onEventCancel} disabled={!event || !event.edited}>
+                            <span className='tooltiptext big-button'>בטל</span>
+                            <i className='fa fa-undo'/>
+                        </button>
+                        <button className='btn tooltip' onClick={onEventSave} disabled={!event || !event.edited}>
+                            <span className='tooltiptext big-button'>שמור אירוע</span>
+                            <i className='fa fa-save'/>
+                        </button>
+                        <button className='btn tooltip' onClick={onEventDelete} disabled={!event || event.newEvent}>
+                            <span className='tooltiptext big-button'>מחק אירוע</span>
+                            <i className='fa fa-trash'/>
+                        </button>
+                        <button className='btn tooltip' onClick={onBack}>
+                            <span className='tooltiptext big-button'>חזור</span>
+                            <i className='fa fa-times'/>
+                        </button>
+                {/*</div>*/}
             </div>
         </div>)
 });

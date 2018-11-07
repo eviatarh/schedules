@@ -19,6 +19,24 @@ export const actionCreators = {
             event:updatedEvent
         })
     },
+    repeatedEvent:{
+        init: events => ({
+            type:ActionTypes.INIT_REPEAT_EVENTS,
+            events
+        }),
+        add: newEvent => ({
+            type:ActionTypes.ADD_REPEAT_EVENT,
+            event:newEvent
+        }),
+        remove: eventId => ({
+            type:ActionTypes.REMOVE_REPEAT_EVENT,
+            eventId
+        }),
+        update: updatedEvent => ({
+            type:ActionTypes.UPDATE_REPEAT_EVENT,
+            event:updatedEvent
+        })
+    },
     workers:{
         add: newWorker => ({
             type:ActionTypes.ADD_WORKER,

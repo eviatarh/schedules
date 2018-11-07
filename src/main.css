@@ -114,6 +114,10 @@ html{
     background-color: #85b3ff;
 }
 
+.repeat {
+    background-color:lightblue;
+}
+
 
 .card{
     background-color: #85b3ff;
@@ -209,16 +213,30 @@ li {
     background-color: black;
     color: #fff;
     text-align: center;
-    padding: 0 3px 0 3px;
-    border-radius: 6px;
     font-size:smaller;
-    position: absolute;
     z-index: 1;
-    left:-7px;
-    top:-17px;
-    /*return this when overflow fixed...*/
-    /*right:7px;*/
-    /*top:17px;*/
+    white-space: nowrap;
+    position: fixed!important;
+    padding: 1px 3px 1px 3px;
+    transform: none!important;
+    right: auto;
+    bottom: auto;
+    top: auto;
+    left: auto;
+}
+
+
+.tooltip .tiny-button {
+    margin-top:11px;
+    margin-right:8px;
+}
+.tooltip .big-button{
+    margin-top:18px;
+    margin-right: 3px;
+}
+.tooltip .event-title {
+    margin-top:16px;
+    margin-right: 11px;
 }
 
 .tooltip:hover .tooltiptext {
