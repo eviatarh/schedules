@@ -12,7 +12,6 @@ export const withEventActions = withHandlers({
         onEventTrigger({type:EventTriggerTypes.eventDeleted, event})
     },
     onEventSave: ({event, onEventTrigger = ()=>{}}) => () => {
-        debugger;
         onEventTrigger({type:EventTriggerTypes.eventSaved, event})
     }
 });

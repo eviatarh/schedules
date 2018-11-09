@@ -17,7 +17,12 @@ export const actionCreators = {
         update: updatedEvent => ({
             type:ActionTypes.UPDATE_SCHEDULE,
             event:updatedEvent
-        })
+        }),
+        multiUpdate: events => ({
+                type:ActionTypes.MULTI_UPDATE_SCHEDULE,
+                events
+            }
+        )
     },
     repeatedEvent:{
         init: events => ({

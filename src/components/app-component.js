@@ -16,20 +16,40 @@ import {EditEventComponent} from "./event-component";
 const _ = require('lodash');
 const history = createHistory();
 
+
 const mapStateToProps = ({scheduleEvent, roles, activeEvent}) => {
+    const mergeWithFather = event => {
+        if (event.childOf){
+            return {...event, ...{childOf:scheduleEvent.find(currEvent => currEvent.id === event.childOf)}}
+        }
+        return event;
+    };
+    const eventsToUI = scheduleEvent.map(mergeWithFather);
+    let active;
+    if (activeEvent && activeEvent.id !== null){
+        active = {...eventsToUI.find(currEvent=>currEvent.id===activeEvent.id)};
+    } else {
+        active = activeEvent ? activeEvent.partialEvent : null;
+    }
     return {
-        eventsMap: createStateMap(scheduleEvent),
+        eventsMap: createStateMap(eventsToUI),
         roles,
-        activeEvent: (()=>{
-            return activeEvent === null ? null :
-                (activeEvent.id === null ? activeEvent.partialEvent : scheduleEvent.find(currEvent=>currEvent.id===activeEvent.id))})()
+        activeEvent: active
     }
 };
 
 const mapDispatchToProp = dispatch => {
+    const makeEventForStore = event => {
+        return event.childOf && typeof event.childOf === 'object' ? {...event, ...{childOf:event.childOf.id}} : event;
+    };
+
+    const myFunc = (updatedEvent)=>{
+        dispatch(actionCreators.schedules.update(makeEventForStore(updatedEvent)))
+    };
     return {
         initEvents: events => dispatch(actionCreators.schedules.init(events)),
-        updateEventInStore: updatedEvent => dispatch(actionCreators.schedules.update(updatedEvent)),
+        updateEventInStore: updatedEvent => myFunc(updatedEvent),
+        updateEventsInStore: events => dispatch(actionCreators.schedules.multiUpdate(events.map(makeEventForStore))),
         removeEventInStore: eventId => dispatch(actionCreators.schedules.remove(eventId)),
         setActiveEvent: eventId => dispatch(actionCreators.activeEvent.set(eventId)),
         setPartialActiveEvent: partialEvent => dispatch(actionCreators.activeEvent.partial(partialEvent))
@@ -88,12 +108,22 @@ const fetchHandlers = {
     }};
 
 const eventsHandlers = {
-    updateEvent: ({updateEventInStore, addEventToCache, setCalendarDate}) => updatedEvent => {
-        if (updatedEvent.edited) {
+    updateEvent: ({updateEventInStore, updateEventsInStore, addEventToCache, setCalendarDate}) => (updatedEvent, upgradedEvent) => {
+        if (updatedEvent && updatedEvent.edited) {
             addEventToCache(updatedEvent);
         }
-        updateEventInStore(updatedEvent);
-        setCalendarDate(updatedEvent.date)
+        if (upgradedEvent && upgradedEvent.edited){
+            addEventToCache(upgradedEvent);
+        }
+        const eventsToUpdate = [updatedEvent, upgradedEvent].filter(event=>event);
+        if (eventsToUpdate.length > 1){
+            updateEventsInStore(eventsToUpdate);
+        } else {
+            updateEventInStore(eventsToUpdate[0]);
+        }
+        if (updatedEvent){
+            setCalendarDate(updatedEvent.date);
+        }
     },
     resetEvent:({updateEventInStore, removeEventFromCache})=> savedEvent => {
         removeEventFromCache(savedEvent.id);
@@ -101,7 +131,7 @@ const eventsHandlers = {
     },
     removeEvent: ({removeEventInStore, removeEventFromCache}) => event => {
         if (event.edited){
-            removeEventFromCache(event.id)
+            removeEventFromCache(event.id);
         }
         removeEventInStore(event.id);
     }
@@ -112,13 +142,30 @@ const appComponentHandlers = {
         setPartialActiveEvent({date});
         history.push(`/showEvent`);
     },
-    onUpdateEvent: ({fetchEventId, updateEvent, setActiveEvent}) => async updatedEvent=>{
-        let eventId = updatedEvent.id;
-        if (updatedEvent.id === -1) {
-            eventId = await fetchEventId();
+    onUpdateEvent: ({activeEvent, fetchEventId, updateEvent, setActiveEvent, removeEvent}) => async ({updatedEvent, upgradedEvent})=>{
+        if (!updatedEvent) {
+            updateEvent(null, upgradedEvent);
+        } else {
+            let eventId = updatedEvent.id;
+            if (updatedEvent.id === -1) {
+                eventId = await fetchEventId();
+                updatedEvent = {...updatedEvent, ...{id:eventId}};
+            }
+            if (upgradedEvent){
+                upgradedEvent = {...upgradedEvent, ...{
+                        id: upgradedEvent.id || `ext${eventId}`,
+                        children : upgradedEvent.children || [eventId],
+                    }};
+                updatedEvent = {...updatedEvent, ...{childOf: updatedEvent.childOf || upgradedEvent.id}};
+                updateEvent(updatedEvent, upgradedEvent);
+            } else {
+                if (activeEvent && activeEvent.childOf && !updatedEvent.childOf){
+                    removeEvent(activeEvent.childOf);
+                }
+                updateEvent(updatedEvent);
+            }
+            setActiveEvent(eventId);
         }
-        updateEvent({...updatedEvent, ...{id:eventId}});
-        setActiveEvent(eventId);
     },
     onBack: ()=> () =>{
         history.push('/');
@@ -138,15 +185,26 @@ const appComponentHandlers = {
                     break;
                 }
                 case (EventTriggerTypes.eventSaved): {
+                    if (!event.rollbackEvent.childOf && event.childOf){
+
+                    }
                     const savedEvent = makeUiEvent(await postEvent(event));
                     resetEvent(savedEvent);
                     setCalendarDate(savedEvent.date);
                     break;
                 }
                 case (EventTriggerTypes.eventCanceled): {
+                    debugger;
                     if (event.newEvent) {
+                        if (event.childOf){
+                            removeEvent(event.childOf);
+                        }
                         removeEvent(event);
                     } else {
+                        const childOfChanged = !(!event.childOf === !event.rollbackEvent.childOf);
+                        if (childOfChanged && !event.rollbackEvent.childOf) {
+                            removeEvent(event.childOf);
+                        }
                         resetEvent(event.rollbackEvent);
                         setCalendarDate(event.rollbackEvent.date);
                     }

@@ -144,12 +144,12 @@ li {
 }
 
 .fieldTitle {
-    width:100px;
+    width:110px;
 }
 
 
 .forceIt input {
-    width:100px !important;
+    width:130px !important;
 }
 
 .spc {
@@ -161,6 +161,8 @@ li {
     justify-content: center;
     align-items: center;
     margin-top:5px;
+    margin-left: 25px;
+    margin-right: 25px;
 }
 
 .roleLine{
@@ -247,4 +249,7 @@ li {
     overflow-y: auto;
     overflow-x: hidden;
     height:77px;
+}
+.days{
+    width:123px;
 }

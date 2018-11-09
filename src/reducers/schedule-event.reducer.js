@@ -67,6 +67,17 @@ export function scheduleEvent(state = initialState, action) {
                 }
                 return currEvent;
             });
+        case ActionTypes.MULTI_UPDATE_SCHEDULE:
+            let newState = [...state];
+            for (let event of action.events){
+                const updatedEventIndex = newState.findIndex(currEvent => event.id === currEvent.id);
+                if (updatedEventIndex === -1){
+                    newState = [...newState, event];
+                } else {
+                    newState[updatedEventIndex] = {...newState[updatedEventIndex], ...event};
+                }
+            }
+            return newState;
         default:
             return state;
     }

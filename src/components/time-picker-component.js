@@ -1,6 +1,6 @@
 import React from "react";
 import {NumberScroller} from "./number-scroller-component";
-const pad = ((a,b) => (1e15+a+"").slice(-b));
+import {pad} from "../utils/pad";
 
 export function TimePicker({value, onChange}){
     const isHours = (hours) =>{

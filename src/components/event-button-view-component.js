@@ -1,8 +1,6 @@
 import React from "react";
 import {withEventActions} from "./high-order-components/withEventActions";
-
-const pad = ((a,b) => (1e15+a+"").slice(-b));
-
+import {pad} from "../utils/pad";
 
 function shortDisplayName(displayName){
    if (displayName.length > 7){
@@ -11,15 +9,14 @@ function shortDisplayName(displayName){
    return displayName
 }
 
-
- const EventButtonView =
-     withEventActions(({event, onEventClick, onEventCancel, onEventDelete, onEventSave}) =>{
-         const {from, to} = event.timePeriod;
-         const showCancelButton = event && event.edited;
+const EventButtonView = withEventActions(({event, onEventClick, onEventCancel, onEventDelete, onEventSave}) =>{
+         const uiEvent = event.childOf || event;
+         const {from, to} = uiEvent.timePeriod;
+         const showCancelButton = uiEvent.edited;
          const showSaveButton = showCancelButton;
-         const showDeleteButton = event && !event.newEvent;
+         const showDeleteButton = !uiEvent.newEvent;
          return(
-             <div className={`event ${event.edited ? 'unsavedEvent' : ''}`}>
+             <div className={`event ${uiEvent.edited ? 'unsavedEvent' : ''}`}>
                      <div onClick={onEventClick}>
                          {from.getHours()}<sup>{pad(from.getMinutes(),2)}</sup> - {to.getHours()}
                          <sup>{pad(to.getMinutes(),2)}</sup>
@@ -48,8 +45,8 @@ function shortDisplayName(displayName){
                          </div>
                          <div className='flx row fill' onClick={onEventClick}>
                              <span className='tooltip'>
-                                 <span className='tooltiptext event-title'>{event.displayName}</span>
-                                {shortDisplayName(event.displayName)}
+                                 <span className='tooltiptext event-title'>{uiEvent.displayName}</span>
+                                {shortDisplayName(uiEvent.displayName)}
                              </span>
                              <span className='fill'/>
                          </div>

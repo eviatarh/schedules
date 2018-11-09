@@ -1,0 +1,1 @@
+export const pad = ((a,b) => (1e15+a+"").slice(-b));
